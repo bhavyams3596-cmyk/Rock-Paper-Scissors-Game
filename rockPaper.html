@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rock Paper Scissor</title>
+    <style>
+        #gameOver {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: white;
+            font-size: 48px;
+            font-weight: bold;
+            z-index: 10;
+        }
+        #gameOver button {
+            margin-top: 20px;
+            font-size: 20px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        /* Confetti canvas: overlay mida untundi, but clicks block cheyadu */
+        #confetti {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 11;
+        }
+    </style>
+</head>
+<body>
+    <div class="target-row">
+        <label for="target">Target Score: </label>
+        <input type="number" id="target" value="5" min="1">
+    </div>
+
+    <div class="button-row">
+        <button class="increment" onclick="player('Rock')">🗿</button>
+        <button class="increment" onclick="player('Paper')">📄</button>
+        <button class="increment" onclick="player('Scissor')">✂️</button>
+        <button class="decrement" onclick="resetscore()">Reset</button>
+    </div>
+
+    <div class="ranking">
+        <h2>
+            <div id="computer">Computer: 0</div>
+            <div id="player">Player: 0</div>
+            <div id="tie">Tie: 0</div>
+        </h2>
+    </div>
+
+    <div id="gameOver">
+        <div id="gameOverText"></div>
+        <button onclick="resetscore()">Play Again</button>
+    </div>
+
+    <canvas id="confetti"></canvas>
+
+    <script>
+        let playermove = 0;
+        let computermove = 0;
+        let tiematch = 0;
+        let gameEnded = false;
+
+        function getTarget() {
+            const t = parseInt(document.getElementById('target').value);
+            return (isNaN(t) || t < 1) ? 5 : t;
+        }
+
+        function computerMove() {
+            const cmove = Math.random();
+            if (cmove < 1 / 3) return "Rock";
+            else if (cmove < 2 / 3) return "Scissor";
+            else return "Paper";
+        }
+
+        function player(move) {
+            if (gameEnded) return;
+
+            const cmove = computerMove();
+            let res = "";
+
+            if (move === cmove) {
+                res = "Tie";
+            } else if (
+                (move === 'Rock' && cmove === 'Scissor') ||
+                (move === 'Scissor' && cmove === 'Paper') ||
+                (move === 'Paper' && cmove === 'Rock')
+            ) {
+                res = "You Win";
+            } else {
+                res = "You Lost";
+            }
+
+            if (res === "You Win") playermove++;
+            else if (res === "You Lost") computermove++;
+            else tiematch++;
+
+            updateScore();
+            checkWinner();
+        }
+
+        function updateScore() {
+            document.getElementById('computer').innerHTML = `Computer: ${computermove}`;
+            document.getElementById('player').innerHTML = `Player: ${playermove}`;
+            document.getElementById('tie').innerHTML = `Tie: ${tiematch}`;
+        }
+
+        function checkWinner() {
+            const target = getTarget();
+            if (computermove >= target) {
+                showGameOver("You lost the game 😢");
+            } else if (playermove >= target) {
+                showGameOver("You won the game 🎉");
+                startCelebration();   // 🎆 blast start
+            }
+        }
+
+        function showGameOver(message) {
+            gameEnded = true;
+            document.getElementById('target').disabled = true;
+            document.getElementById('gameOverText').innerText = message;
+            document.getElementById('gameOver').style.display = 'flex';
+        }
+
+        function resetscore() {
+            playermove = 0;
+            computermove = 0;
+            tiematch = 0;
+            gameEnded = false;
+            document.getElementById('target').disabled = false;
+            document.getElementById('gameOver').style.display = 'none';
+            stopCelebration();        // blast aapu
+            updateScore();
+        }
+
+        /* ---------- Celebration (confetti blast) ---------- */
+        const canvas = document.getElementById('confetti');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let animId = null;
+        let burstTimer = null;
+        const colors = ['#ff595e', '#ffca3a', '#8ac926', '#1982c4', '#6a4c93', '#ff924c'];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // oka chota nunchi confetti blast
+        function createBurst(x, y) {
+            for (let i = 0; i < 90; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 9 + 3;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: Math.random() * 6 + 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    life: 1,
+                    decay: Math.random() * 0.008 + 0.006,
+                    rotation: Math.random() * Math.PI * 2,
+                    rotSpeed: (Math.random() - 0.5) * 0.3
+                });
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles = particles.filter(p => p.life > 0);
+
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.15;      // gravity
+                p.vx *= 0.99;      // air resistance
+                p.life -= p.decay;
+                p.rotation += p.rotSpeed;
+
+                ctx.save();
+                ctx.globalAlpha = Math.max(p.life, 0);
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rotation);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+                ctx.restore();
+            });
+
+            if (particles.length > 0 || burstTimer) {
+                animId = requestAnimationFrame(animate);
+            } else {
+                animId = null;
+            }
+        }
+
+        function startCelebration() {
+            stopCelebration();
+            let count = 0;
+
+            // modata screen center lo pedda blast
+            createBurst(canvas.width / 2, canvas.height / 2);
+
+            // tarvata random places lo blasts
+            burstTimer = setInterval(() => {
+                createBurst(
+                    Math.random() * canvas.width,
+                    Math.random() * canvas.height * 0.6
+                );
+                count++;
+                if (count >= 12) {
+                    clearInterval(burstTimer);
+                    burstTimer = null;
+                }
+            }, 300);
+
+            animate();
+        }
+
+        function stopCelebration() {
+            clearInterval(burstTimer);
+            burstTimer = null;
+            cancelAnimationFrame(animId);
+            animId = null;
+            particles = [];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    </script>
+</body>
+</html>
